@@ -51,3 +51,8 @@ SELECT ?idn,?church WHERE {
                     order by ?idn
                     offset 7000
 ```
+
+TODO
+-----
+
+* Add support for LIMIT clause
