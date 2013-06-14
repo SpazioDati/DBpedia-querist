@@ -3,21 +3,24 @@ dbpedia-querist
 A simple library to query dbpedia and airpedia endpoints
 """
 import re
-from sparql import Service
+from sparql import Service,SparqlException
 
 ENDPOINTS = {
 'en':       'http://dbpedia.org/sparql',
 'it':       'http://it.dbpedia.org/sparql',
 'fr':       'http://fr.dbpedia.org/sparql',
-'airpedia': 'http://airpedia.org/sparql'
+'airpedia': 'http://www.airpedia.org/sparql'
 }
-
-RESULTSLIMIT = 1000
 
 class DBpediaQuerist(object):
 
-    def __init__(self,lang='en'):
+    def __init__(self,lang='en',resultlimit=1000):
+        assert isinstance(resultlimit,int)
+        assert resultlimit >= 0
+        assert lang in ENDPOINTS.keys()
+
         self.lang=lang
+        self.resultlimit=resultlimit
         self.endpoint=ENDPOINTS[lang]
         self.Service = Service(self.endpoint)
 
@@ -28,17 +31,27 @@ class DBpediaQuerist(object):
         cq = SPARQLQueryBuilder(qb)
         orig_offset = qb.get_offset() or 0
         cq.select('COUNT(*)').orderby(None).offset(None)
-        rescq = int([str(res[0]) for res in self.Service.query(cq.build()).fetchone()][0])
+        try:
+            rescq = int([str(res[0]) for res in self.Service.query(cq.build()).fetchone()][0])
+        except SparqlException as e:
+            print 'ERROR: ', e.code
+            print e.message
+            return
         numres = rescq-orig_offset
 
         # get actual results
         results = list()
-        for off in range(orig_offset,numres,RESULTSLIMIT):
+        reslim=self.resultlimit or numres or -1
+        for off in range(orig_offset,numres,reslim):
             nqb = SPARQLQueryBuilder(qb).offset(off)
             print nqb.build()
-            resnq = self.Service.query(nqb.build())
-            results += self.Service.query(nqb.build()).fetchall()
-
+            try:
+                resnq = self.Service.query(nqb.build())
+                results += resnq.fetchall()
+            except SparqlException as e:
+                print 'ERROR: ', e.code
+                print e.message
+                return
         return results
 
 class SPARQLQueryBuilder(object):
@@ -112,17 +125,50 @@ class SPARQLQueryBuilder(object):
         return querytext
 
 if __name__ == "__main__":
-    dbq = DBpediaQuerist('it')
-    qb = SPARQLQueryBuilder()
-    qb.select('?idn,?church')
-    qb.where('''?church a <http://dbpedia.org/ontology/ReligiousBuilding>.
-                ?church <http://dbpedia.org/ontology/wikiPageID> ?idn
-             '''
-            )
-    qb.orderby('?idn')
-    result = dbq.query(qb)
+    print
+    print 'Create DBpediaQuerist object'
+    dbq=DBpediaQuerist('it')
 
-    qb2 = SPARQLQueryBuilder(qb)
-    qb2.offset(158)
+    print 'Standard query'
+    qb=SPARQLQueryBuilder()
+
+    qb.select('?idn,?church').where('''
+               ?church a <http://dbpedia.org/ontology/ReligiousBuilding>.
+               ?church <http://dbpedia.org/ontology/wikiPageID> ?idn
+              '''
+             ).orderby('?idn')
+    result = dbq.query(qb)
+    print 'Test passed'
+    
+    print
+    print 'Copy constructor and query with offset'
+    qb2=SPARQLQueryBuilder(qb)
+    qb2.offset(5158)
     result = dbq.query(qb2)
-    print len(result)
+    print 'Test passed'
+
+    print
+    print 'Empty query (raises SPARQLQueryBuilder AssertionError)'
+    qb3=SPARQLQueryBuilder()
+    try:
+        qb3.build()
+    except AssertionError:
+        print 'AssertionError raised'
+
+    qb3.select('?something')
+    try:
+        qb3.build()
+    except AssertionError:
+        print 'AssertionError raised'
+    print 'Test passed'
+
+    print
+    print 'Query with error (raise an error in SPARQL endpoint)'
+    print 'result is None'
+    qb4=SPARQLQueryBuilder()
+    qb4.where('?something')
+    qb4.where('someerror')
+    result = dbq.query(qb4)
+    assert result is None
+    print 'Test passed'
+
