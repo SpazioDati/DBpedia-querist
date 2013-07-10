@@ -69,7 +69,7 @@ class SPARQLQueryBuilder(object):
                   """
         if isinstance(qb, SPARQLQueryBuilder):
             self._select = qb.get_select()
-            self._where = qb.get_where().replace(' ', '_')
+            self._where = qb.get_where()
             self._order = qb.get_orderby()
             self._offset = qb.get_offset()
 
