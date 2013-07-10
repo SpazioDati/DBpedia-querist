@@ -2,30 +2,29 @@
 dbpedia-querist
 A simple library to query dbpedia and airpedia endpoints
 """
-import re
-from sparql import Service,SparqlException
+from sparql import Service, SparqlException
 
-ENDPOINTS = {
-'en':       'http://dbpedia.org/sparql',
-'it':       'http://it.dbpedia.org/sparql',
-'fr':       'http://fr.dbpedia.org/sparql',
-'airpedia': 'http://www.airpedia.org/sparql'
-}
+ENDPOINTS = {'en':       'http://dbpedia.org/sparql',
+             'it':       'http://it.dbpedia.org/sparql',
+             'fr':       'http://fr.dbpedia.org/sparql',
+             'airpedia': 'http://www.airpedia.org/sparql'
+             }
+
 
 class DBpediaQuerist(object):
 
-    def __init__(self,lang='en',resultlimit=1000):
-        assert isinstance(resultlimit,int)
+    def __init__(self, lang='en', resultlimit=1000):
+        assert isinstance(resultlimit, int)
         assert resultlimit >= 0
         assert lang in ENDPOINTS.keys()
 
-        self.lang=lang
-        self.resultlimit=resultlimit
-        self.endpoint=ENDPOINTS[lang]
+        self.lang = lang
+        self.resultlimit = resultlimit
+        self.endpoint = ENDPOINTS[lang]
         self.Service = Service(self.endpoint)
 
-    def query(self,qb):
-        assert isinstance(qb,SPARQLQueryBuilder)
+    def query(self, qb):
+        assert isinstance(qb, SPARQLQueryBuilder)
 
         # count total no. of results
         cq = SPARQLQueryBuilder(qb)
@@ -41,10 +40,9 @@ class DBpediaQuerist(object):
 
         # get actual results
         results = list()
-        reslim=self.resultlimit or numres or -1
-        for off in range(orig_offset,numres,reslim):
+        reslim = self.resultlimit or numres or -1
+        for off in range(orig_offset, numres, reslim):
             nqb = SPARQLQueryBuilder(qb).offset(off)
-            print nqb.build()
             try:
                 resnq = self.Service.query(nqb.build())
                 results += resnq.fetchall()
@@ -54,42 +52,43 @@ class DBpediaQuerist(object):
                 return
         return results
 
+
 class SPARQLQueryBuilder(object):
     """
     A SPARQL query builder class
     """
 
-    def __init__(self,qb=None):
-       self._select=None
-       self._where=None
-       self._order=None
-       self._offset=None
-       self.query="""SELECT {select} WHERE {{
+    def __init__(self, qb=None):
+        self._select = None
+        self._where = None
+        self._order = None
+        self._offset = None
+        self.query = """SELECT {select} WHERE {{
                       {where}
                      }}
                   """
-       if isinstance(qb,SPARQLQueryBuilder):
-           self._select=qb.get_select()
-           self._where=qb.get_where()
-           self._order=qb.get_orderby()
-           self._offset=qb.get_offset()
+        if isinstance(qb, SPARQLQueryBuilder):
+            self._select = qb.get_select()
+            self._where = qb.get_where().replace(' ', '_')
+            self._order = qb.get_orderby()
+            self._offset = qb.get_offset()
 
-    def select(self,select):
-        self._select=select
+    def select(self, select):
+        self._select = select
         return self
 
-    def where(self,where):
-        self._where=where
+    def where(self, where):
+        self._where = where
         return self
 
-    def orderby(self,order):
-        self._order=order
+    def orderby(self, order):
+        self._order = order
         return self
 
-    def offset(self,offset):
+    def offset(self, offset):
         if offset is not None:
-            assert isinstance(offset,int)
-        self._offset=offset
+            assert isinstance(offset, int)
+        self._offset = offset
         return self
 
     def get_select(self):
@@ -110,16 +109,16 @@ class SPARQLQueryBuilder(object):
     def build(self):
         assert self._select
         assert self._where
-        querytext=self.query.format(select=self._select,
-                                    where=self._where
-                                   )
+        querytext = self.query.format(select=self._select,
+                                      where=self._where
+                                      )
 
         if self._order:
-            querytext+="""order by {order}
+            querytext += """order by {order}
                    """.format(order=self._order)
 
         if self._offset:
-            querytext+="""offset {offset}
+            querytext += """offset {offset}
                    """.format(offset=str(self._offset))
 
         return querytext
@@ -127,29 +126,28 @@ class SPARQLQueryBuilder(object):
 if __name__ == "__main__":
     print
     print 'Create DBpediaQuerist object'
-    dbq=DBpediaQuerist('it')
+    dbq = DBpediaQuerist('it')
 
     print 'Standard query'
-    qb=SPARQLQueryBuilder()
+    qb = SPARQLQueryBuilder()
 
     qb.select('?idn,?church').where('''
                ?church a <http://dbpedia.org/ontology/ReligiousBuilding>.
                ?church <http://dbpedia.org/ontology/wikiPageID> ?idn
-              '''
-             ).orderby('?idn')
+              ''').orderby('?idn')
     result = dbq.query(qb)
     print 'Test passed'
-    
+
     print
     print 'Copy constructor and query with offset'
-    qb2=SPARQLQueryBuilder(qb)
+    qb2 = SPARQLQueryBuilder(qb)
     qb2.offset(5158)
     result = dbq.query(qb2)
     print 'Test passed'
 
     print
     print 'Empty query (raises SPARQLQueryBuilder AssertionError)'
-    qb3=SPARQLQueryBuilder()
+    qb3 = SPARQLQueryBuilder()
     try:
         qb3.build()
     except AssertionError:
@@ -165,10 +163,9 @@ if __name__ == "__main__":
     print
     print 'Query with error (raise an error in SPARQL endpoint)'
     print 'result is None'
-    qb4=SPARQLQueryBuilder()
+    qb4 = SPARQLQueryBuilder()
     qb4.where('?something')
     qb4.where('someerror')
     result = dbq.query(qb4)
     assert result is None
     print 'Test passed'
-
