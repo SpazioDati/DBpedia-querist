@@ -31,7 +31,7 @@ class DBpediaQuerist(object):
         orig_offset = qb.get_offset() or 0
         cq.select('COUNT(*)').orderby(None).offset(None)
         try:
-            rescq = int([str(res[0]) for res in self.Service.query(cq.build()).fetchone()][0])
+            rescq = int([unicode(res[0]).encode('utf-8') for res in self.Service.query(cq.build()).fetchone()][0])
         except SparqlException as e:
             print 'ERROR: ', e.code
             print e.message
@@ -109,8 +109,8 @@ class SPARQLQueryBuilder(object):
     def build(self):
         assert self._select
         assert self._where
-        querytext = self.query.format(select=self._select,
-                                      where=self._where
+        querytext = self.query.format(select=self._select.encode('utf-8'),
+                                      where=self._where.encode('ascii', 'ignore')
                                       )
 
         if self._order:
